@@ -293,12 +293,6 @@ function checkout(){
 }
 function openReceipt(tx){document.getElementById("modalContent").innerHTML=`<h2>Sale Complete</h2><div class="receipt" id="receipt"><h2>J&S MARKET</h2><small>FICTIONAL TRAINING STORE</small><small>REGISTER #03 • CASHIER ALEX</small><div class="dash"></div>${tx.lines.map(x=>{let p=products.find(y=>y[0]===x[0]);return `<div class="rline"><span>${x[1]} × ${p[1]}</span><span>${money(p[4]*x[1])}</span></div>`}).join("")}<div class="dash"></div><div class="rline"><span>SUBTOTAL</span><b>${money(tx.sub)}</b></div><div class="rline"><span>SALES TAX 8%</span><b>${money(tx.tax)}</b></div><div class="rline"><span>DISCOUNT</span><b>-${money(tx.disc)}</b></div><div class="rline"><span>TOTAL</span><b>${money(tx.total)}</b></div><div class="rline"><span>PAYMENT</span><b>${tx.payment}</b></div><div class="dash"></div><small>Receipt ${tx.id} • ${tx.time}</small><div class="printnote">Fictional roleplay receipt — no real payment.</div></div><div class="modalactions"><button onclick="closeModal()">Close</button><button class="primary" onclick="printReceipt()">Print Receipt</button></div>`;document.getElementById("modal").classList.add("show")}
 function printReceipt(){let r=document.getElementById("receipt").outerHTML;let w=window.open("","_blank");w.document.write(`<html><head><title>Receipt</title><style>body{font-family:monospace;margin:0}.receipt{width:80mm;padding:5mm}.receipt h2{text-align:center;margin:0}.receipt small{display:block;text-align:center;margin:4px}.rline{display:flex;justify-content:space-between;font-size:12px;margin:6px 0}.dash{border-top:1px dashed #555;margin:12px 0}.printnote{font-size:10px;text-align:center;color:#555}</style></head><body>${r}
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-}
-</script>
-
 </body></html>`);w.document.close();w.print()}
 function closeModal(){document.getElementById("modal").classList.remove("show")}
 function printLast(){if(lastReceipt)openReceipt(lastReceipt);else alert("No completed sale yet.")}
@@ -314,6 +308,10 @@ function openShift(){document.getElementById("modalContent").innerHTML=`<h2>Cash
 function tick(){document.getElementById("clock").textContent=new Date().toLocaleString([], {dateStyle:"medium",timeStyle:"medium"})}
 buildFilters();setInterval(tick,1000);tick();renderAll();updateRestockPanel();startRestockTimer();
 </script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
 </body>
 </html>
-<!-- J&S Market Pages deployment refresh -->
