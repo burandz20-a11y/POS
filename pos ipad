@@ -1,0 +1,333 @@
+{
+  "name": "J&S Market POS",
+  "short_name": "J&S Market",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "description": "Fictional J&S Market cashier and restaurant POS."
+}
+const CACHE="js-market-pos-v1";
+const ASSETS=["./","./index.html","./manifest.webmanifest"];
+self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting()});
+self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim()});
+self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request).then(r=>{caches.open(CACHE).then(x=>x.put(e.request,r.clone()));return r})))});
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J&S Market — Fictional POS</title>
+<style>
+:root{--bg:#111318;--panel:#1b1e25;--panel2:#242832;--line:#353a45;--text:#f4f5f7;--muted:#a7adba;--gold:#d8b15a;--maroon:#76263a;--green:#36c275;--red:#e35d6a;--blue:#5797ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:245px 1fr;min-height:100vh}
+.sidebar{background:#17191f;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column}
+.logo{font-weight:900;font-size:22px;letter-spacing:1px}.logo span{color:var(--gold)}.fictional{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:1.4px}
+.nav{margin-top:30px;display:grid;gap:7px}.nav button{background:transparent;color:#cbd0da;text-align:left;padding:12px 13px;border-radius:9px}.nav button.active,.nav button:hover{background:var(--maroon);color:white}.shift{margin-top:auto;background:#20232b;border:1px solid var(--line);padding:14px;border-radius:10px;font-size:13px}.shift b{display:block;margin-bottom:5px}.main{padding:22px;min-width:0}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:20px}.title h1{margin:0;font-size:25px}.title p{margin:4px 0;color:var(--muted);font-size:13px}.status{display:flex;gap:9px;align-items:center}.pill{padding:7px 10px;border-radius:20px;background:#1e2c25;color:#77e0a1;font-size:12px}.pill.off{background:#322329;color:#f09aa6}
+#toast{position:fixed;right:22px;bottom:22px;background:#252a34;border:1px solid var(--gold);color:#fff;padding:13px 16px;border-radius:9px;box-shadow:0 8px 30px #0007;transform:translateY(20px);opacity:0;pointer-events:none;transition:.2s;z-index:20;font-size:13px}#toast.show{transform:translateY(0);opacity:1}.clock{color:var(--muted);font-size:13px}
+.page{display:none}.page.active{display:block}.register{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.8fr);gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.cardhead{padding:15px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.cardhead h2{font-size:15px;margin:0}.search{padding:12px 15px;border-bottom:1px solid var(--line)}input,select{background:#101217;border:1px solid var(--line);color:white;border-radius:8px;padding:10px;width:100%;outline:none}input:focus{border-color:var(--gold)}
+.categories{display:flex;gap:7px;overflow:auto;padding:12px 15px;border-bottom:1px solid var(--line)}.cat{white-space:nowrap;padding:7px 10px;background:#252933;color:#cdd2dc;border-radius:7px;font-size:12px}.cat.sel{background:var(--gold);color:#161616;font-weight:700}
+.filterrow,.subfilters{display:flex;gap:7px;overflow:auto;padding-bottom:6px}.subfilters{padding-top:2px}.subcat{white-space:nowrap;padding:6px 9px;background:#1d222b;color:#aeb5c1;border:1px solid #303642;border-radius:6px;font-size:11px}.subcat.sel{background:#4a3038;color:#fff;border-color:#81505d}
+.products{padding:15px;display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;max-height:650px;overflow:auto}.product{background:var(--panel2);border:1px solid #3a3f49;border-radius:9px;padding:13px;text-align:left;color:white;min-height:125px}.product:hover{border-color:var(--gold);transform:translateY(-1px)}.prodicon{font-size:26px}.prodname{font-weight:700;margin:8px 0 3px;font-size:13px}.prodmeta{font-size:10px;line-height:1.35;color:var(--muted)}.price{color:var(--gold);font-weight:800;margin-top:8px}
+.cart{display:flex;flex-direction:column;min-height:650px}.cartitems{padding:10px 15px;flex:1;overflow:auto}.empty{text-align:center;color:var(--muted);padding:70px 10px}.lineitem{padding:12px 0;border-bottom:1px solid #30343e;display:grid;grid-template-columns:1fr auto;gap:8px}.li-name{font-weight:700;font-size:13px}.li-sku{font-size:10px;color:var(--muted);margin-top:3px}.li-controls{display:flex;align-items:center;gap:6px;margin-top:8px}.qty{background:#30343d;color:white;width:29px;height:26px;border-radius:5px}.qty:hover{background:#444a56}.li-total{font-weight:800}.summary{border-top:1px solid var(--line);padding:15px}.sumrow{display:flex;justify-content:space-between;margin:7px 0;font-size:13px;color:#cdd1da}.sumrow.total{font-size:20px;color:white;font-weight:900;margin-top:12px}.discount{display:flex;gap:7px;margin:12px 0}.discount input{padding:8px}.discount button{background:#3a3031;color:#f0bdc4;border-radius:7px;padding:0 11px}.paybuttons{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.paybuttons button{padding:12px 5px;border-radius:8px;background:#30343e;color:white}.paybuttons button:hover{background:var(--maroon)}.checkout{width:100%;margin-top:8px;background:var(--gold);padding:13px;border-radius:8px;font-weight:900}.checkout:hover{filter:brightness(1.08)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px}.stat label{font-size:11px;color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:7px}.tablewrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{padding:12px;border-bottom:1px solid var(--line);text-align:left}.table th{color:var(--muted);font-size:11px;text-transform:uppercase}
+.toolbar{display:flex;gap:10px;margin-bottom:14px}.toolbar button,.primary{background:var(--gold);padding:10px 14px;border-radius:7px;font-weight:800}.secondary{background:#30343d;color:white!important}.danger{background:#4a252b!important;color:#ffb8c0!important}.inventorygrid{padding:15px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.stock{background:#242832;border:1px solid var(--line);border-radius:9px;padding:13px}.stocktop{display:flex;justify-content:space-between;gap:10px}.low{color:#ff9da8}.ok{color:#73dc9d}.notice{padding:12px;background:#29252a;color:#e8c7cf;border:1px solid #4a343b;border-radius:8px;margin-bottom:14px;font-size:12px}
+.modal{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;padding:20px;z-index:5}.modal.show{display:flex}.modalbox{background:#1b1e25;border:1px solid var(--line);border-radius:12px;width:min(500px,100%);padding:20px}.modalbox h2{margin-top:0}.formgrid{display:grid;gap:10px}.modalactions{display:flex;gap:8px;justify-content:flex-end;margin-top:15px}.modalactions button{padding:10px 14px;border-radius:7px;background:#30343d;color:white}.modalactions .primary{background:var(--gold);color:#111}
+.receipt{background:white;color:#111;padding:18px;width:360px;margin:auto;font-family:monospace}.receipt h2{text-align:center;margin:0}.receipt small{display:block;text-align:center;margin:4px}.rline{display:flex;justify-content:space-between;font-size:12px;margin:6px 0}.dash{border-top:1px dashed #555;margin:12px 0}.printnote{font-size:11px;color:#555;text-align:center}
+@media(max-width:950px){.app{grid-template-columns:1fr}.sidebar{display:none}.register{grid-template-columns:1fr}.cart{min-height:500px}.products{max-height:none}.stats{grid-template-columns:repeat(2,1fr)}}
+@media print{body{background:white}.sidebar,.main>*:not(.page),.page:not(.active),.no-print{display:none!important}.page.active{display:block!important}.receipt{width:80mm;padding:5mm}}
+</style>
+
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="J&S Market">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+html { -webkit-text-size-adjust:100%; }
+body { min-height:100vh; min-height:100dvh; -webkit-tap-highlight-color:transparent; overscroll-behavior-y:contain; }
+button,input,select,textarea,.product-card,[role="button"] { touch-action:manipulation; }
+@media (pointer:coarse) {
+  button,input,select { min-height:44px; }
+  button { padding-top:10px; padding-bottom:10px; }
+  .product-card { min-height:80px; }
+}
+@media (max-width:900px) and (orientation:portrait) {
+  .product-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="logo">J&S <span>MARKET</span></div><div class="fictional">Fictional POS Training Store</div>
+  <div class="nav">
+    <button class="active" onclick="showPage('register',this)">🧾 Register</button>
+    <button onclick="showPage('transactions',this)">📋 Transactions</button>
+    <button onclick="showPage('inventory',this)">📦 Inventory</button>
+    <button onclick="showPage('reports',this)">📊 Daily Report</button>
+    <button onclick="openShift()">💰 Cash Drawer</button>
+  </div>
+  <div class="shift"><b>Cashier: Alex</b><span>Register #03</span><br><span id="shiftState">Shift open</span></div>
+</aside>
+<main class="main">
+  <div class="top">
+    <div class="title"><h1>Point of Sale</h1><p>J&S Market • Fictional training environment</p></div>
+    <div class="status"><span class="pill" id="online">● Register Online</span><span class="clock" id="clock"></span></div>
+  </div>
+
+  <section id="register" class="page active">
+    <div class="register">
+      <div class="card">
+        <div class="cardhead"><h2>Product Catalog</h2><span class="clock" id="productCount"></span></div>
+        <div class="search"><input id="search" placeholder="Search products, SKU or barcode..." oninput="renderProducts()"></div>
+        <div class="categories" id="categories"></div>
+        <div class="products" id="products"></div>
+      </div>
+      <div class="card cart">
+        <div class="cardhead"><h2>Current Sale</h2><button class="danger" style="padding:7px 9px;border-radius:6px" onclick="clearCart()">Clear</button></div>
+        <div class="cartitems" id="cart"></div>
+        <div class="summary">
+          <div class="sumrow"><span>Subtotal</span><b id="subtotal">€0.00</b></div>
+          <div class="sumrow"><span>Sales Tax (8%)</span><b id="tax">€0.00</b></div>
+          <div class="discount"><input id="coupon" placeholder="Promo code (SAVE10)"><button onclick="applyCoupon()">Apply</button></div>
+          <div class="sumrow"><span>Discount</span><b id="discount">€0.00</b></div>
+          <div class="sumrow total"><span>TOTAL</span><span id="total">€0.00</span></div>
+          <div style="margin-top:10px"><input id="received" type="number" min="0" step=".01" placeholder="Cash received ($)" oninput="updateChange()"></div>
+          <div class="sumrow"><span>Change</span><b id="change">€0.00</b></div>
+          <div class="paybuttons">
+            <button onclick="setPayment('Cash')">💶 Cash</button><button onclick="setPayment('Card')">💳 Card</button><button onclick="setPayment('Other')">◎ Other</button>
+          </div>
+          <button class="checkout" onclick="checkout()">COMPLETE SALE</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="transactions" class="page">
+    <div class="stats"><div class="stat"><label>TRANSACTIONS</label><strong id="txCount">0</strong></div><div class="stat"><label>GROSS SALES</label><strong id="gross">€0.00</strong></div><div class="stat"><label>ITEMS SOLD</label><strong id="itemsSold">0</strong></div><div class="stat"><label>AVG. SALE</label><strong id="avg">€0.00</strong></div></div>
+    <div class="card"><div class="cardhead"><h2>Transaction History</h2><button class="secondary" onclick="printLast()">Print Last Receipt</button></div><div class="tablewrap"><table class="table"><thead><tr><th>Receipt</th><th>Time</th><th>Items</th><th>Payment</th><th>Total</th></tr></thead><tbody id="txTable"></tbody></table></div></div>
+  </section>
+
+  <section id="inventory" class="page">
+    <div class="notice">All products, prices, SKUs and transactions on this site are fictional and intended for roleplay/training only. 🍽️ Restaurant service is included as a simulated department.</div>
+<div class="card no-print" style="margin-bottom:14px">
+  <div class="cardhead"><h2>📦 Recurring Restock</h2><div style="display:flex;gap:8px;align-items:center"><span id="restockStatus" class="pill">● Auto-restock ON</span><span style="font-size:12px;color:#a7adba">Next: <b id="restockCountdown">60s</b></span></div></div>
+  <div style="padding:14px;display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+    <button class="primary" onclick="toggleRestock()">Pause / Resume Auto-Restock</button>
+    <button class="secondary" style="padding:10px 14px;border-radius:7px;color:white" onclick="manualRestock()">Receive Restock Now</button>
+    <span style="font-size:12px;color:#a7adba">Low-stock items are automatically replenished every 60 seconds. Restock deliveries are simulated locally.</span>
+    <span style="font-size:12px;color:#a7adba">Deliveries received: <b id="restockRuns">0</b></span>
+  </div>
+</div>
+    <div class="card"><div class="cardhead"><h2>Inventory</h2><span class="clock" id="inventoryCount"></span></div><div class="inventorygrid" id="inventoryGrid"></div></div>
+  </section>
+
+  <section id="reports" class="page">
+    <div class="stats"><div class="stat"><label>NET SALES</label><strong id="reportSales">€0.00</strong></div><div class="stat"><label>VAT COLLECTED</label><strong id="reportVat">€0.00</strong></div><div class="stat"><label>DISCOUNTS</label><strong id="reportDisc">€0.00</strong></div><div class="stat"><label>CASH SALES</label><strong id="cashSales">€0.00</strong></div></div>
+    <div class="card"><div class="cardhead"><h2>Register Summary</h2><button class="primary" onclick="window.print()">Print Report</button></div><div style="padding:18px" id="reportDetails"></div></div>
+  </section>
+</main>
+</div>
+
+<div class="modal" id="modal"><div class="modalbox" id="modalContent"></div></div>
+<div id="printArea" style="display:none"></div>
+
+<script>
+const products=[["P001","Fresh Coffee Beans 500g","Grocery","Coffee & Tea",8.9,"☕",24],["P002","Mountain Tea 40 Bags","Grocery","Coffee & Tea",4.5,"🍵",30],["P003","Sparkling Water 6x","Drinks","Water",3.2,"💧",42],["P004","Orange Juice 1L","Drinks","Juice & Soft Drinks",2.8,"🍊",18],["P005","Chocolate Bar","Snacks","Chocolate & Sweets",1.7,"🍫",55],["P006","Sea Salt Crisps","Snacks","Crisps & Savory",2.3,"🥔",31],["P007","Granola Breakfast Mix","Grocery","Breakfast",5.9,"🥣",16],["P008","Strawberry Jam","Grocery","Spreads & Pantry",3.75,"🍓",21],["P009","Vanilla Candle","Home","Storage & Textiles",7.5,"🕯️",12],["P010","Ceramic Mug","Home","Kitchen",6.9,"☕",14],["P011","Kitchen Towel Set","Home","Kitchen",9.8,"🧺",9],["P012","Notebook Classic","Stationery","Planners & Notebooks",3.4,"📓",27],["P013","Gold Gel Pen Set","Stationery","Writing",5.6,"🖊️",20],["P014","Desk Organizer","Stationery","Planners & Notebooks",8.2,"🗂️",7],["P015","Travel Umbrella","Accessories","Fashion Accessories",12.9,"☂️",8],["P016","Canvas Tote Bag","Accessories","Bags & Wallets",6.5,"👜",19],["P017","Phone Cable 2m","Electronics","Computer Accessories",11.9,"🔌",11],["P018","USB Desk Light","Electronics","Computer Accessories",14.9,"💡",6],["P019","Wireless Mouse","Electronics","Computer Accessories",18.5,"🖱️",10],["P020","Mini Bluetooth Speaker","Electronics","Audio",24.9,"🔊",5],["P021","Classic Denim Jeans","Clothing","Bottoms",39.99,"👖",18],["P022","Black Basic T-Shirt","Clothing","Tops",14.99,"👕",35],["P023","White Polo Shirt","Clothing","Tops",24.99,"👔",22],["P024","Maroon Hoodie","Clothing","Tops",34.99,"🧥",14],["P025","Lightweight Jacket","Clothing","Tops",49.99,"🧥",9],["P026","Summer Dress","Clothing","Dresses & Skirts",44.99,"👗",11],["P027","Pleated Skirt","Clothing","Dresses & Skirts",29.99,"👗",15],["P028","Casual Shorts","Clothing","Bottoms",22.99,"🩳",20],["P029","Cotton Socks 3-Pack","Clothing","Hats & Accessories",9.99,"🧦",40],["P030","Running Sneakers","Clothing","Footwear",59.99,"👟",12],["P031","Baseball Cap","Clothing","Hats & Accessories",16.99,"🧢",18],["P032","Winter Beanie","Clothing","Hats & Accessories",12.99,"🧶",16],["P033","Leather-Style Belt","Clothing","Hats & Accessories",19.99,"🧷",13],["P034","Everyday Scarf","Clothing","Hats & Accessories",18.99,"🧣",17],["P035","Smartphone X1","Technology","Audio",499.99,"📱",8],["P036","Tablet 10-inch","Technology","Phones & Tablets",279.99,"📱",7],["P037","Laptop Air 14","Technology","Computers",749.99,"💻",5],["P038","Wireless Headphones","Technology","Audio",89.99,"🎧",13],["P039","Smart Watch Active","Technology","Audio",129.99,"⌚",10],["P040","Portable Power Bank","Technology","Audio",29.99,"🔋",22],["P041","Mechanical Keyboard","Technology","Computers",74.99,"⌨️",8],["P042","4K Monitor 27-inch","Technology","Monitors",299.99,"🖥️",6],["P043","Webcam HD","Technology","Storage & Accessories",49.99,"📷",14],["P044","Gaming Mouse RGB","Technology","Computers",39.99,"🖱️",12],["P045","USB-C Hub","Technology","Audio",34.99,"🔌",15],["P046","Portable SSD 1TB","Technology","Storage & Accessories",99.99,"💾",9],["P047","Kids Building Blocks","Toys","Building & Puzzles",24.99,"🧱",16],["P048","Remote Control Car","Toys","Vehicles",32.99,"🚗",10],["P049","Plush Bear","Toys","Creative & Outdoor",18.99,"🧸",21],["P050","Doll Fashion Set","Toys","Dolls & Figures",27.99,"👗",12],["P051","Toy Kitchen Set","Toys","Creative & Outdoor",39.99,"🍳",7],["P052","Puzzle 1000 Pieces","Toys","Building & Puzzles",14.99,"🧩",20],["P053","Board Game Night","Toys","Games",29.99,"🎲",13],["P054","Toy Train Set","Toys","Vehicles",45.99,"🚂",6],["P055","Art Marker Kit","Toys","Creative & Outdoor",22.99,"🖍️",15],["P056","Foam Sports Ball","Toys","Creative & Outdoor",11.99,"⚽",25],["P057","Action Figure Hero","Toys","Dolls & Figures",19.99,"🦸",17],["P058","Mini Doctor Kit","Toys","Games",21.99,"🩺",9],["P059","School Backpack","Bags","Backpacks",34.99,"🎒",18],["P060","Travel Backpack","Bags","Backpacks",54.99,"🎒",10],["P061","Crossbody Bag","Bags","Handbags",29.99,"👜",14],["P062","Weekend Duffel","Bags","Travel Bags",42.99,"🧳",8],["P063","Small Wallet","Accessories","Bags & Wallets",17.99,"👛",19],["P064","Sunglasses Classic","Accessories","Fashion Accessories",21.99,"🕶️",16],["P065","Stainless Water Bottle","Home","Storage & Textiles",18.99,"🥤",23],["P066","Electric Kettle","Home","Kitchen",29.99,"🫖",8],["P067","Nonstick Frying Pan","Home","Kitchen",26.99,"🍳",11],["P068","Storage Box Set","Home","Storage & Textiles",15.99,"📦",20],["P069","LED Desk Clock","Home","Lighting",19.99,"⏰",13],["P070","Throw Blanket","Home","Storage & Textiles",32.99,"🛏️",9],["P071","Ballpoint Pen Pack","Stationery","Writing",4.99,"🖊️",50],["P072","Premium Planner","Stationery","Planners & Notebooks",12.99,"📔",18],["P073","Sticky Notes Set","Stationery","Planners & Notebooks",5.49,"🗒️",35],["P074","Sketchbook A4","Stationery","Art Supplies",8.99,"📒",24],["P075","Acrylic Paint Set","Stationery","Art Supplies",18.99,"🎨",12],["P076","Scissors & Ruler Set","Stationery","Writing",6.99,"✂️",21],["P077","Car Air Freshener","Auto","Car Accessories",4.99,"🚙",25],["P078","Dashboard Phone Mount","Auto","Car Accessories",19.99,"📱",14],["P079","Microfiber Car Cloths","Auto","Car Care",8.99,"🧽",30],["P080","Emergency Car Kit","Auto","Emergency",39.99,"🧰",7],["P081","Garden Gloves","Garden","Garden Tools",7.99,"🧤",18],["P082","Plant Mister","Garden","Plant Care",9.99,"🌱",15],["P083","Mini Watering Can","Garden","Plant Care",13.99,"🪴",10],["P084","Garden Tool Set","Garden","Garden Tools",24.99,"🛠️",8],["P085","Face Wash","Personal Care","Skin Care",7.99,"🧴",22],["P086","Hand Cream","Personal Care","Skin Care",6.49,"🧴",25],["P087","Shampoo 500ml","Personal Care","Hair Care",8.99,"🧴",20],["P088","Toothbrush Twin Pack","Personal Care","Bath & Oral Care",4.99,"🪥",32],["P089","Bath Towel","Personal Care","Bath & Oral Care",14.99,"🛁",16],["P090","Travel Toiletry Kit","Personal Care","Bath & Oral Care",12.99,"🧳",13],["P091","Fictional Mystery Novel","Books","Fiction",11.99,"📖",18],["P092","Cookbook Collection","Books","Cooking & Lifestyle",19.99,"📚",12],["P093","Kids Storybook","Books","Children",8.99,"📕",24],["P094","Business Journal","Books","Business",16.99,"📘",10],["P095","Yoga Mat","Sports","Fitness",22.99,"🧘",14],["P096","Resistance Bands","Sports","Fitness",14.99,"🏋️",18],["P097","Tennis Racket","Sports","Racket Sports",54.99,"🎾",7],["P098","Training Water Bottle","Sports","Fitness",12.99,"🏃",21],["P099","Football","Sports","Team Sports",19.99,"⚽",15],["P100","Fitness Towel","Sports","Fitness",9.99,"🏋️",20],["P101","Decorative Plant","Decor","Plants & Frames",16.99,"🌿",14],["P102","Picture Frame 8x10","Decor","Plants & Frames",12.99,"🖼️",18],["P103","Table Lamp","Decor","Lighting",34.99,"🛋️",8],["P104","Wall Clock","Decor","Clocks & Accessories",24.99,"🕐",11],["P105","Scented Wax Set","Decor","Clocks & Accessories",13.99,"🕯️",17],["P106","Desk Photo Frame","Decor","Plants & Frames",9.99,"🖼️",22],["P107","Snack Gift Box","Gifts","Gift Baskets",24.99,"🎁",12],["P108","Birthday Card Set","Gifts","Cards & Small Gifts",7.99,"💌",30],["P109","Fictional Gift Voucher $25","Gifts","Gift Vouchers",25.0,"🎟️",50],["P110","Premium Gift Basket","Gifts","Gift Baskets",49.99,"🎁",7],["P111","Bananas, per lb","Grocery","Fresh Produce",0.69,"🥬",41],["P112","Gala Apples, 3 lb Bag","Grocery","Fresh Produce",4.49,"🥬",48],["P113","Green Apples, 3 lb Bag","Grocery","Fresh Produce",4.79,"🥬",48],["P114","Navel Oranges, 4 lb Bag","Grocery","Fresh Produce",5.49,"🥬",36],["P115","Lemons, 2 lb Bag","Grocery","Fresh Produce",3.49,"🥬",44],["P116","Limes, 1 lb Bag","Grocery","Fresh Produce",2.49,"🥬",32],["P117","Avocados, 4 Count","Grocery","Fresh Produce",4.99,"🥬",46],["P118","Strawberries, 1 lb","Grocery","Fresh Produce",3.99,"🥬",18],["P119","Blueberries, 6 oz","Grocery","Fresh Produce",3.49,"🥬",44],["P120","Raspberries, 6 oz","Grocery","Fresh Produce",3.79,"🥬",60],["P121","Grapes, 2 lb","Grocery","Fresh Produce",4.99,"🥬",34],["P122","Pineapple Whole","Grocery","Fresh Produce",3.99,"🥬",33],["P123","Mango, 2 Count","Grocery","Fresh Produce",3.49,"🥬",58],["P124","Kiwi, 4 Count","Grocery","Fresh Produce",3.29,"🥬",32],["P125","Peaches, 2 lb","Grocery","Fresh Produce",4.49,"🥬",18],["P126","Pears, 2 lb","Grocery","Fresh Produce",3.99,"🥬",36],["P127","Watermelon Mini","Grocery","Fresh Produce",5.99,"🥬",37],["P128","Baby Carrots 1 lb","Grocery","Fresh Produce",1.99,"🥬",39],["P129","Broccoli Crown","Grocery","Fresh Produce",2.29,"🥬",60],["P130","Cauliflower Head","Grocery","Fresh Produce",2.99,"🥬",27],["P131","Spinach 8 oz","Grocery","Fresh Produce",2.99,"🥬",56],["P132","Romaine Hearts 3 Pack","Grocery","Fresh Produce",3.49,"🥬",37],["P133","Mixed Salad 5 oz","Grocery","Fresh Produce",3.99,"🥬",19],["P134","Iceberg Lettuce","Grocery","Fresh Produce",1.99,"🥬",32],["P135","Cucumbers, 2 Count","Grocery","Fresh Produce",2.49,"🥬",56],["P136","Tomatoes on Vine 1.5 lb","Grocery","Fresh Produce",3.49,"🥬",34],["P137","Cherry Tomatoes Pint","Grocery","Fresh Produce",3.29,"🥬",19],["P138","Bell Peppers 3 Pack","Grocery","Fresh Produce",3.99,"🥬",27],["P139","Yellow Onions 3 lb","Grocery","Fresh Produce",2.99,"🥬",56],["P140","Red Onions 2 lb","Grocery","Fresh Produce",2.79,"🥬",60],["P141","Russet Potatoes 5 lb","Grocery","Fresh Produce",3.99,"🥬",58],["P142","Sweet Potatoes 3 lb","Grocery","Fresh Produce",3.49,"🥬",19],["P143","Garlic 3 Count","Grocery","Fresh Produce",1.49,"🥬",47],["P144","Green Beans 1 lb","Grocery","Fresh Produce",2.99,"🥬",47],["P145","Corn on the Cob 4 Pack","Grocery","Fresh Produce",3.49,"🥬",56],["P146","Celery Bunch","Grocery","Fresh Produce",1.99,"🥬",58],["P147","White Sandwich Bread","Grocery","Bakery",2.99,"🥖",36],["P148","Whole Wheat Bread","Grocery","Bakery",3.49,"🥖",32],["P149","Sourdough Loaf","Grocery","Bakery",4.99,"🥖",37],["P150","Multigrain Bread","Grocery","Bakery",4.29,"🥖",41],["P151","Brioche Loaf","Grocery","Bakery",4.99,"🥖",34],["P152","Hamburger Buns 8 Pack","Grocery","Bakery",3.49,"🥖",44],["P153","Hot Dog Buns 8 Pack","Grocery","Bakery",3.49,"🥖",23],["P154","Dinner Rolls 12 Pack","Grocery","Bakery",3.99,"🥖",40],["P155","Plain Bagels 6 Pack","Grocery","Bakery",3.99,"🥖",49],["P156","Everything Bagels 6 Pack","Grocery","Bakery",4.29,"🥖",45],["P157","Croissants 4 Pack","Grocery","Bakery",4.99,"🥖",51],["P158","Blueberry Muffins 4 Pack","Grocery","Bakery",4.49,"🥖",59],["P159","Chocolate Muffins 4 Pack","Grocery","Bakery",4.49,"🥖",29],["P160","Cinnamon Rolls 4 Pack","Grocery","Bakery",4.99,"🥖",54],["P161","Flour Tortillas 10 Pack","Grocery","Bakery",3.49,"🥖",36],["P162","Corn Tortillas 30 Pack","Grocery","Bakery",2.99,"🥖",55],["P163","Garlic Bread","Grocery","Bakery",2.99,"🥖",20],["P164","French Baguette","Grocery","Bakery",2.49,"🥖",36],["P165","Whole Milk 1 Gallon","Grocery","Dairy & Eggs",4.29,"🥛",23],["P166","2% Milk 1 Gallon","Grocery","Dairy & Eggs",4.09,"🥛",18],["P167","1% Milk 1 Gallon","Grocery","Dairy & Eggs",4.09,"🥛",51],["P168","Skim Milk 1 Gallon","Grocery","Dairy & Eggs",3.99,"🥛",41],["P169","Whole Milk Half Gallon","Grocery","Dairy & Eggs",2.79,"🥛",33],["P170","Chocolate Milk Half Gallon","Grocery","Dairy & Eggs",3.29,"🥛",49],["P171","Almond Milk 64 oz","Grocery","Dairy & Eggs",3.99,"🥛",27],["P172","Oat Milk 64 oz","Grocery","Dairy & Eggs",4.49,"🥛",37],["P173","Soy Milk 64 oz","Grocery","Dairy & Eggs",3.79,"🥛",37],["P174","Large Eggs 12 Count","Grocery","Dairy & Eggs",3.49,"🥛",38],["P175","Large Eggs 18 Count","Grocery","Dairy & Eggs",5.29,"🥛",47],["P176","Free Range Eggs 12 Count","Grocery","Dairy & Eggs",5.99,"🥛",47],["P177","Salted Butter 4 Sticks","Grocery","Dairy & Eggs",4.99,"🥛",22],["P178","Unsalted Butter 4 Sticks","Grocery","Dairy & Eggs",4.99,"🥛",28],["P179","Margarine Tub","Grocery","Dairy & Eggs",2.99,"🥛",48],["P180","Cheddar Cheese 8 oz","Grocery","Dairy & Eggs",3.99,"🥛",18],["P181","Mozzarella 8 oz","Grocery","Dairy & Eggs",3.99,"🥛",46],["P182","Swiss Cheese 8 oz","Grocery","Dairy & Eggs",4.49,"🥛",49],["P183","Parmesan Grated 8 oz","Grocery","Dairy & Eggs",5.49,"🥛",18],["P184","Cream Cheese 8 oz","Grocery","Dairy & Eggs",2.79,"🥛",48],["P185","Sour Cream 16 oz","Grocery","Dairy & Eggs",2.49,"🥛",25],["P186","Plain Yogurt 32 oz","Grocery","Dairy & Eggs",3.49,"🥛",47],["P187","Vanilla Yogurt 32 oz","Grocery","Dairy & Eggs",3.99,"🥛",57],["P188","Greek Yogurt 4 Pack","Grocery","Dairy & Eggs",4.99,"🥛",23],["P189","Strawberry Yogurt 4 Pack","Grocery","Dairy & Eggs",4.49,"🥛",49],["P190","Half & Half 32 oz","Grocery","Dairy & Eggs",3.49,"🥛",59],["P191","Heavy Cream Pint","Grocery","Dairy & Eggs",4.29,"🥛",19],["P192","Ground Beef 1 lb","Grocery","Meat & Seafood",6.99,"🥩",27],["P193","Ground Turkey 1 lb","Grocery","Meat & Seafood",5.99,"🥩",32],["P194","Chicken Breast 2 lb","Grocery","Meat & Seafood",9.99,"🥩",43],["P195","Chicken Thighs 2 lb","Grocery","Meat & Seafood",6.99,"🥩",41],["P196","Chicken Wings 2 lb","Grocery","Meat & Seafood",8.99,"🥩",20],["P197","Pork Chops 1.5 lb","Grocery","Meat & Seafood",8.49,"🥩",52],["P198","Pork Tenderloin 1 lb","Grocery","Meat & Seafood",9.99,"🥩",20],["P199","Bacon 12 oz","Grocery","Meat & Seafood",5.99,"🥩",60],["P200","Breakfast Sausage 1 lb","Grocery","Meat & Seafood",4.99,"🥩",59],["P201","Italian Sausage 1 lb","Grocery","Meat & Seafood",5.49,"🥩",43],["P202","Deli Ham 8 oz","Grocery","Meat & Seafood",5.49,"🥩",56],["P203","Deli Turkey 8 oz","Grocery","Meat & Seafood",5.99,"🥩",38],["P204","Beef Hot Dogs 8 Pack","Grocery","Meat & Seafood",4.49,"🥩",48],["P205","Frozen Salmon Fillets","Grocery","Meat & Seafood",10.99,"🥩",50],["P206","Tilapia Fillets","Grocery","Meat & Seafood",8.99,"🥩",60],["P207","Large Shrimp 1 lb","Grocery","Meat & Seafood",11.99,"🥩",59],["P208","Fish Sticks 20 oz","Grocery","Meat & Seafood",5.99,"🥩",22],["P209","All-Purpose Flour 5 lb","Grocery","Pantry & Canned",3.49,"🥫",32],["P210","Granulated Sugar 4 lb","Grocery","Pantry & Canned",3.29,"🥫",38],["P211","Brown Sugar 2 lb","Grocery","Pantry & Canned",2.99,"🥫",24],["P212","White Rice 5 lb","Grocery","Pantry & Canned",5.99,"🥫",23],["P213","Brown Rice 2 lb","Grocery","Pantry & Canned",3.49,"🥫",52],["P214","Long Grain Rice 2 lb","Grocery","Pantry & Canned",3.29,"🥫",25],["P215","Pasta Spaghetti 16 oz","Grocery","Pantry & Canned",1.79,"🥫",33],["P216","Pasta Penne 16 oz","Grocery","Pantry & Canned",1.79,"🥫",18],["P217","Macaroni 16 oz","Grocery","Pantry & Canned",1.79,"🥫",43],["P218","Pasta Sauce 24 oz","Grocery","Pantry & Canned",2.49,"🥫",58],["P219","Tomato Sauce 15 oz","Grocery","Pantry & Canned",1.49,"🥫",20],["P220","Diced Tomatoes 14.5 oz","Grocery","Pantry & Canned",1.39,"🥫",25],["P221","Tomato Paste 6 oz","Grocery","Pantry & Canned",1.29,"🥫",21],["P222","Black Beans 15 oz","Grocery","Pantry & Canned",1.19,"🥫",43],["P223","Kidney Beans 15 oz","Grocery","Pantry & Canned",1.19,"🥫",27],["P224","Chickpeas 15 oz","Grocery","Pantry & Canned",1.29,"🥫",58],["P225","Sweet Corn 15 oz","Grocery","Pantry & Canned",1.49,"🥫",34],["P226","Green Beans 14.5 oz","Grocery","Pantry & Canned",1.39,"🥫",33],["P227","Chicken Noodle Soup 18 oz","Grocery","Pantry & Canned",2.49,"🥫",29],["P228","Tomato Soup 18 oz","Grocery","Pantry & Canned",1.99,"🥫",55],["P229","Chicken Broth 32 oz","Grocery","Pantry & Canned",3.49,"🥫",18],["P230","Vegetable Broth 32 oz","Grocery","Pantry & Canned",3.49,"🥫",33],["P231","Peanut Butter 18 oz","Grocery","Pantry & Canned",3.49,"🥫",51],["P232","Almond Butter 12 oz","Grocery","Pantry & Canned",6.49,"🥫",33],["P233","Strawberry Jam 18 oz","Grocery","Pantry & Canned",3.79,"🥫",25],["P234","Grape Jelly 18 oz","Grocery","Pantry & Canned",2.99,"🥫",24],["P235","Mayonnaise 30 oz","Grocery","Pantry & Canned",4.49,"🥫",59],["P236","Ketchup 32 oz","Grocery","Pantry & Canned",3.49,"🥫",27],["P237","Yellow Mustard 14 oz","Grocery","Pantry & Canned",1.99,"🥫",35],["P238","BBQ Sauce 18 oz","Grocery","Pantry & Canned",2.99,"🥫",42],["P239","Soy Sauce 15 oz","Grocery","Pantry & Canned",2.49,"🥫",44],["P240","Hot Sauce 5 oz","Grocery","Pantry & Canned",2.29,"🥫",20],["P241","Olive Oil 17 oz","Grocery","Pantry & Canned",7.99,"🥫",43],["P242","Vegetable Oil 48 oz","Grocery","Pantry & Canned",5.49,"🥫",47],["P243","White Vinegar 32 oz","Grocery","Pantry & Canned",2.49,"🥫",47],["P244","Apple Cider Vinegar 32 oz","Grocery","Pantry & Canned",3.99,"🥫",47],["P245","Honey 12 oz","Grocery","Pantry & Canned",4.99,"🥫",34],["P246","Maple Syrup 12 oz","Grocery","Pantry & Canned",6.99,"🥫",20],["P247","Chicken Bouillon","Grocery","Pantry & Canned",3.99,"🥫",21],["P248","Taco Shells 12 Pack","Grocery","Pantry & Canned",2.49,"🥫",19],["P249","Corn Flakes Family Size","Grocery","Breakfast",4.49,"🥣",30],["P250","Honey Oat Cereal","Grocery","Breakfast",4.99,"🥣",45],["P251","Chocolate Cereal","Grocery","Breakfast",4.79,"🥣",60],["P252","Granola 12 oz","Grocery","Breakfast",5.49,"🥣",34],["P253","Instant Oatmeal 10 Pack","Grocery","Breakfast",3.99,"🥣",50],["P254","Pancake Mix 32 oz","Grocery","Breakfast",3.49,"🥣",42],["P255","Waffle Mix 32 oz","Grocery","Breakfast",3.99,"🥣",24],["P256","Pancake Syrup 24 oz","Grocery","Breakfast",3.29,"🥣",31],["P257","Strawberry Preserves","Grocery","Breakfast",4.49,"🥣",25],["P258","Potato Chips Classic","Grocery","Snacks",3.49,"🍿",44],["P259","Tortilla Chips","Grocery","Snacks",3.49,"🍿",58],["P260","Cheese Crackers","Grocery","Snacks",3.29,"🍿",24],["P261","Saltine Crackers","Grocery","Snacks",2.49,"🍿",36],["P262","Graham Crackers","Grocery","Snacks",3.29,"🍿",25],["P263","Pretzel Twists","Grocery","Snacks",2.99,"🍿",47],["P264","Popcorn Microwave 3 Pack","Grocery","Snacks",2.99,"🍿",45],["P265","Caramel Popcorn","Grocery","Snacks",4.49,"🍿",27],["P266","Trail Mix 12 oz","Grocery","Snacks",5.49,"🍿",43],["P267","Mixed Nuts 10 oz","Grocery","Snacks",7.49,"🍿",33],["P268","Roasted Peanuts 16 oz","Grocery","Snacks",3.49,"🍿",26],["P269","Granola Bars 12 Pack","Grocery","Snacks",4.49,"🍿",26],["P270","Protein Bars 6 Pack","Grocery","Snacks",7.99,"🍿",43],["P271","Chocolate Cookies","Grocery","Snacks",3.49,"🍿",45],["P272","Oatmeal Cookies","Grocery","Snacks",3.29,"🍿",50],["P273","Gummy Candy","Grocery","Snacks",2.49,"🍿",32],["P274","Hard Candy","Grocery","Snacks",2.29,"🍿",43],["P275","Marshmallows 10 oz","Grocery","Snacks",2.49,"🍿",29],["P276","Frozen French Fries 32 oz","Grocery","Frozen",3.99,"🧊",41],["P277","Frozen Tater Tots 32 oz","Grocery","Frozen",4.29,"🧊",60],["P278","Frozen Mixed Vegetables 16 oz","Grocery","Frozen",2.49,"🧊",49],["P279","Frozen Peas 16 oz","Grocery","Frozen",2.29,"🧊",29],["P280","Frozen Corn 16 oz","Grocery","Frozen",2.29,"🧊",44],["P281","Frozen Broccoli 16 oz","Grocery","Frozen",2.49,"🧊",31],["P282","Frozen Pizza Cheese","Grocery","Frozen",5.99,"🧊",60],["P283","Frozen Pizza Pepperoni","Grocery","Frozen",6.49,"🧊",45],["P284","Frozen Lasagna","Grocery","Frozen",7.99,"🧊",19],["P285","Chicken Nuggets 24 oz","Grocery","Frozen",7.49,"🧊",49],["P286","Frozen Burritos 4 Pack","Grocery","Frozen",5.49,"🧊",37],["P287","Ice Cream Vanilla Pint","Grocery","Frozen",4.99,"🧊",54],["P288","Ice Cream Chocolate Pint","Grocery","Frozen",4.99,"🧊",36],["P289","Ice Cream Sandwiches 6 Pack","Grocery","Frozen",5.49,"🧊",25],["P290","Frozen Waffles 10 Pack","Grocery","Frozen",3.99,"🧊",22],["P291","Frozen Blueberries 12 oz","Grocery","Frozen",4.49,"🧊",37],["P292","Frozen Strawberries 12 oz","Grocery","Frozen",3.99,"🧊",49],["P293","Sea Salt 26 oz","Grocery","Condiments & Spices",1.99,"🧂",33],["P294","Black Pepper 4 oz","Grocery","Condiments & Spices",3.49,"🧂",52],["P295","Garlic Powder","Grocery","Condiments & Spices",2.49,"🧂",59],["P296","Paprika","Grocery","Condiments & Spices",2.49,"🧂",48],["P297","Cinnamon Ground","Grocery","Condiments & Spices",2.49,"🧂",31],["P298","Italian Seasoning","Grocery","Condiments & Spices",2.99,"🧂",55],["P299","Chili Powder","Grocery","Condiments & Spices",2.49,"🧂",46],["P300","Oregano","Grocery","Condiments & Spices",2.49,"🧂",50],["P301","Ranch Dressing 16 oz","Grocery","Condiments & Spices",3.49,"🧂",26],["P302","Italian Dressing 16 oz","Grocery","Condiments & Spices",3.29,"🧂",49],["P303","Caesar Dressing 16 oz","Grocery","Condiments & Spices",3.49,"🧂",53],["P304","Relish 12 oz","Grocery","Condiments & Spices",2.49,"🧂",23],["P305","Pickles Dill 24 oz","Grocery","Condiments & Spices",3.49,"🧂",58],["P306","Salsa Medium 16 oz","Grocery","Condiments & Spices",3.49,"🧂",60],["P307","Bottled Water 24 Pack","Grocery","Drinks",5.99,"🥤",24],["P308","Spring Water 1 Gallon","Grocery","Drinks",1.49,"🥤",60],["P309","Sparkling Water 8 Pack","Grocery","Drinks",4.49,"🥤",38],["P310","Cola 2 Liter","Grocery","Drinks",2.49,"🥤",21],["P311","Lemon-Lime Soda 2 Liter","Grocery","Drinks",2.49,"🥤",47],["P312","Root Beer 2 Liter","Grocery","Drinks",2.49,"🥤",23],["P313","Cola 12 Pack","Grocery","Drinks",6.99,"🥤",49],["P314","Lemon-Lime Soda 12 Pack","Grocery","Drinks",6.99,"🥤",21],["P315","Orange Soda 12 Pack","Grocery","Drinks",6.99,"🥤",50],["P316","Iced Tea 1 Gallon","Grocery","Drinks",3.49,"🥤",39],["P317","Lemonade 1 Gallon","Grocery","Drinks",3.49,"🥤",52],["P318","Apple Juice 64 oz","Grocery","Drinks",3.49,"🥤",28],["P319","Cranberry Juice 64 oz","Grocery","Drinks",4.49,"🥤",24],["P320","Grape Juice 64 oz","Grocery","Drinks",4.29,"🥤",41],["P321","Sports Drink 6 Pack","Grocery","Drinks",5.99,"🥤",43],["P322","Energy Drink 4 Pack","Grocery","Drinks",7.99,"🥤",36],["P323","Hot Cocoa Mix","Grocery","Drinks",3.99,"🥤",43],["P324","Ground Coffee Medium Roast 12 oz","Grocery","Coffee & Tea",8.99,"☕",22],["P325","Ground Coffee Dark Roast 12 oz","Grocery","Coffee & Tea",9.49,"☕",32],["P326","Decaf Coffee 12 oz","Grocery","Coffee & Tea",9.49,"☕",30],["P327","Instant Coffee 8 oz","Grocery","Coffee & Tea",7.99,"☕",47],["P328","Coffee Pods 12 Count","Grocery","Coffee & Tea",8.99,"☕",31],["P329","Black Tea 20 Bags","Grocery","Coffee & Tea",3.99,"☕",18],["P330","Green Tea 20 Bags","Grocery","Coffee & Tea",4.29,"☕",58],["P331","Herbal Tea 20 Bags","Grocery","Coffee & Tea",4.49,"☕",18],["P332","Baby Diapers Small 24 Count","Grocery","Baby & Family",9.99,"🍼",32],["P333","Baby Diapers Medium 24 Count","Grocery","Baby & Family",10.99,"🍼",39],["P334","Baby Diapers Large 22 Count","Grocery","Baby & Family",10.99,"🍼",43],["P335","Baby Wipes 80 Count","Grocery","Baby & Family",3.99,"🍼",56],["P336","Baby Lotion 15 oz","Grocery","Baby & Family",5.49,"🍼",57],["P337","Baby Shampoo 13 oz","Grocery","Baby & Family",5.49,"🍼",31],["P338","Baby Food Fruit 4 Pack","Grocery","Baby & Family",4.49,"🍼",21],["P339","Baby Food Vegetable 4 Pack","Grocery","Baby & Family",4.49,"🍼",35],["P340","Paper Towels 6 Rolls","Grocery","Household",8.99,"🧻",58],["P341","Toilet Paper 12 Rolls","Grocery","Household",9.99,"🧻",19],["P342","Facial Tissues 3 Pack","Grocery","Household",5.49,"🧻",42],["P343","Trash Bags 30 Count","Grocery","Household",7.99,"🧻",58],["P344","Food Storage Bags 40 Count","Grocery","Household",4.49,"🧻",21],["P345","Aluminum Foil","Grocery","Household",4.99,"🧻",27],["P346","Plastic Wrap","Grocery","Household",3.49,"🧻",60],["P347","Dish Soap 24 oz","Grocery","Household",3.29,"🧻",52],["P348","Dishwasher Tablets 20 Count","Grocery","Household",7.99,"🧻",32],["P349","Laundry Detergent 50 oz","Grocery","Household",8.99,"🧻",31],["P350","Fabric Softener 46 oz","Grocery","Household",6.99,"🧻",50],["P351","Stain Remover","Grocery","Household",5.49,"🧻",58],["P352","All-Purpose Cleaner","Grocery","Household",3.99,"🧻",52],["P353","Glass Cleaner","Grocery","Household",3.49,"🧻",60],["P354","Disinfecting Wipes 75 Count","Grocery","Household",5.49,"🧻",58],["P355","Sponges 6 Pack","Grocery","Household",3.49,"🧻",35],["P356","Broom & Dustpan","Grocery","Household",11.99,"🧻",50],["P357","Mop Refill","Grocery","Household",7.49,"🧻",19],["P358","Crewneck T-Shirt","Clothing","Tops",16.99,"👕",27],["P359","V-Neck T-Shirt","Clothing","Tops",17.99,"👕",27],["P360","Oxford Shirt","Clothing","Tops",29.99,"👕",33],["P361","Flannel Shirt","Clothing","Tops",32.99,"👕",33],["P362","Basic Tank Top","Clothing","Tops",12.99,"👕",24],["P363","Long Sleeve Tee","Clothing","Tops",19.99,"👕",14],["P364","Slim Jeans","Clothing","Bottoms",44.99,"👕",23],["P365","Straight Jeans","Clothing","Bottoms",42.99,"👕",26],["P366","Chino Pants","Clothing","Bottoms",39.99,"👕",23],["P367","Cargo Pants","Clothing","Bottoms",34.99,"👕",19],["P368","Jogger Pants","Clothing","Bottoms",29.99,"👕",12],["P369","Denim Shorts","Clothing","Bottoms",27.99,"👕",30],["P370","Canvas Sneakers","Clothing","Footwear",39.99,"👕",22],["P371","Running Shoes","Clothing","Footwear",64.99,"👕",31],["P372","Casual Loafers","Clothing","Footwear",49.99,"👕",30],["P373","House Slippers","Clothing","Footwear",18.99,"👕",13],["P374","Rain Boots","Clothing","Footwear",34.99,"👕",11],["P375","Puffer Vest","Clothing","Outerwear",49.99,"👕",14],["P376","Rain Jacket","Clothing","Outerwear",54.99,"👕",8],["P377","Fleece Jacket","Clothing","Outerwear",39.99,"👕",10],["P378","Wool Coat","Clothing","Outerwear",89.99,"👕",19],["P379","Smartphone X2","Technology","Phones & Tablets",599.99,"💻",31],["P380","Smartphone Mini","Technology","Phones & Tablets",399.99,"💻",17],["P381","Tablet 8-inch","Technology","Phones & Tablets",199.99,"💻",28],["P382","Tablet Keyboard Case","Technology","Phones & Tablets",39.99,"💻",34],["P383","Stylus Pen","Technology","Phones & Tablets",29.99,"💻",28],["P384","Laptop Pro 15","Technology","Computers",999.99,"💻",11],["P385","Chromebook 14","Technology","Computers",349.99,"💻",12],["P386","Wireless Keyboard","Technology","Computers",44.99,"💻",9],["P387","USB Keyboard","Technology","Computers",24.99,"💻",13],["P388","Laptop Stand","Technology","Computers",39.99,"💻",27],["P389","Noise Cancel Headphones","Technology","Audio",149.99,"💻",30],["P390","Wireless Earbuds","Technology","Audio",79.99,"💻",32],["P391","Desktop Speakers","Technology","Audio",49.99,"💻",30],["P392","Portable Speaker Max","Technology","Audio",69.99,"💻",11],["P393","Game Controller","Technology","Gaming",59.99,"💻",31],["P394","Gaming Headset","Technology","Gaming",69.99,"💻",32],["P395","Gaming Keyboard","Technology","Gaming",89.99,"💻",15],["P396","Gaming Mouse Pad","Technology","Gaming",19.99,"💻",19],["P397","Building Blocks 500 Piece","Toys","Building & Puzzles",29.99,"🧸",14],["P398","Magnetic Tiles Set","Toys","Building & Puzzles",34.99,"🧸",26],["P399","Wood Puzzle Set","Toys","Building & Puzzles",16.99,"🧸",21],["P400","3D Puzzle","Toys","Building & Puzzles",19.99,"🧸",10],["P401","Fashion Doll","Toys","Dolls & Figures",24.99,"🧸",13],["P402","Doll House Figure Set","Toys","Dolls & Figures",19.99,"🧸",10],["P403","Dinosaur Figure Set","Toys","Dolls & Figures",22.99,"🧸",22],["P404","Superhero Figure","Toys","Dolls & Figures",21.99,"🧸",10],["P405","Family Board Game","Toys","Games",29.99,"🧸",9],["P406","Strategy Board Game","Toys","Games",34.99,"🧸",26],["P407","Card Game","Toys","Games",12.99,"🧸",12],["P408","Kids Memory Game","Toys","Games",14.99,"🧸",12],["P409","Die-Cast Car 5 Pack","Toys","Vehicles",14.99,"🧸",29],["P410","Toy Fire Truck","Toys","Vehicles",18.99,"🧸",31],["P411","Remote Control Truck","Toys","Vehicles",39.99,"🧸",32],["P412","Racing Track Set","Toys","Vehicles",44.99,"🧸",13],["P413","Dumbbell Pair 10 lb","Sports","Fitness",24.99,"🏀",32],["P414","Exercise Mat","Sports","Fitness",19.99,"🏀",14],["P415","Foam Roller","Sports","Fitness",16.99,"🏀",21],["P416","Jump Rope","Sports","Fitness",9.99,"🏀",9],["P417","Camping Lantern","Sports","Outdoor",24.99,"🏀",32],["P418","Picnic Blanket","Sports","Outdoor",29.99,"🏀",19],["P419","Frisbee","Sports","Outdoor",8.99,"🏀",11],["P420","Kite","Sports","Outdoor",14.99,"🏀",29],["P421","Basketball","Sports","Team Sports",24.99,"🏀",35],["P422","Soccer Ball Premium","Sports","Team Sports",29.99,"🏀",20],["P423","Volleyball","Sports","Team Sports",22.99,"🏀",21],["P424","Baseball Glove","Sports","Team Sports",34.99,"🏀",16],["P425","Glass Food Container Set","Home","Kitchen",19.99,"🏠",11],["P426","Cutting Board","Home","Kitchen",12.99,"🏠",27],["P427","Knife Set","Home","Kitchen",39.99,"🏠",20],["P428","Measuring Cups","Home","Kitchen",8.99,"🏠",27],["P429","Microfiber Cloth Set","Home","Cleaning",9.99,"🏠",14],["P430","Cleaning Brush Set","Home","Cleaning",7.99,"🏠",19],["P431","Dusting Kit","Home","Cleaning",12.99,"🏠",31],["P432","Closet Hangers 20 Pack","Home","Storage & Textiles",12.99,"🏠",22],["P433","Fabric Storage Cubes","Home","Storage & Textiles",18.99,"🏠",19],["P434","Bath Mat","Home","Storage & Textiles",16.99,"🏠",21],["P435","Classic Breakfast Plate","Restaurant","Breakfast & Brunch",12.99,"🍳",27],["P436","Two Egg Breakfast","Restaurant","Breakfast & Brunch",9.99,"🍳",20],["P437","Bacon & Eggs","Restaurant","Breakfast & Brunch",11.49,"🍳",36],["P438","Breakfast Burrito","Restaurant","Breakfast & Brunch",10.99,"🍳",29],["P439","Avocado Toast","Restaurant","Breakfast & Brunch",10.99,"🍳",22],["P440","French Toast","Restaurant","Breakfast & Brunch",9.49,"🍳",31],["P441","Buttermilk Pancakes","Restaurant","Breakfast & Brunch",9.99,"🍳",21],["P442","Belgian Waffle","Restaurant","Breakfast & Brunch",10.49,"🍳",34],["P443","Chicken & Waffles","Restaurant","Breakfast & Brunch",14.99,"🍳",21],["P444","Eggs Benedict","Restaurant","Breakfast & Brunch",13.99,"🍳",15],["P445","Breakfast Hash","Restaurant","Breakfast & Brunch",11.99,"🍳",39],["P446","Yogurt & Granola Bowl","Restaurant","Breakfast & Brunch",8.99,"🍳",37],["P447","Mozzarella Sticks","Restaurant","Appetizers & Starters",8.99,"🍟",30],["P448","Loaded Potato Skins","Restaurant","Appetizers & Starters",9.99,"🍟",27],["P449","Chicken Wings 8pc","Restaurant","Appetizers & Starters",11.99,"🍟",16],["P450","Buffalo Wings 8pc","Restaurant","Appetizers & Starters",11.99,"🍟",23],["P451","Garlic Bread","Restaurant","Appetizers & Starters",5.99,"🍟",36],["P452","Onion Rings","Restaurant","Appetizers & Starters",7.99,"🍟",27],["P453","French Fries","Restaurant","Appetizers & Starters",5.49,"🍟",22],["P454","Sweet Potato Fries","Restaurant","Appetizers & Starters",6.49,"🍟",30],["P455","Nachos with Cheese","Restaurant","Appetizers & Starters",9.99,"🍟",28],["P456","Loaded Nachos","Restaurant","Appetizers & Starters",13.99,"🍟",35],["P457","Fried Pickles","Restaurant","Appetizers & Starters",7.99,"🍟",24],["P458","Soup of the Day","Restaurant","Appetizers & Starters",6.99,"🍟",25],["P459","Classic Cheeseburger","Restaurant","Burgers & Sandwiches",13.99,"🍔",36],["P460","Bacon Cheeseburger","Restaurant","Burgers & Sandwiches",15.99,"🍔",23],["P461","Double Cheeseburger","Restaurant","Burgers & Sandwiches",17.99,"🍔",25],["P462","Mushroom Swiss Burger","Restaurant","Burgers & Sandwiches",15.49,"🍔",22],["P463","BBQ Bacon Burger","Restaurant","Burgers & Sandwiches",16.49,"🍔",15],["P464","Crispy Chicken Sandwich","Restaurant","Burgers & Sandwiches",13.49,"🍔",35],["P465","Grilled Chicken Sandwich","Restaurant","Burgers & Sandwiches",13.99,"🍔",33],["P466","Chicken Club Sandwich","Restaurant","Burgers & Sandwiches",14.99,"🍔",21],["P467","Turkey Club","Restaurant","Burgers & Sandwiches",13.49,"🍔",27],["P468","BLT Sandwich","Restaurant","Burgers & Sandwiches",10.99,"🍔",30],["P469","Grilled Cheese","Restaurant","Burgers & Sandwiches",8.99,"🍔",30],["P470","Philly-Style Steak Sandwich","Restaurant","Burgers & Sandwiches",15.99,"🍔",35],["P471","Pulled Pork Sandwich","Restaurant","Burgers & Sandwiches",13.99,"🍔",16],["P472","Margherita Pizza 12in","Restaurant","Pizza & Pasta",14.99,"🍕",17],["P473","Pepperoni Pizza 12in","Restaurant","Pizza & Pasta",16.99,"🍕",39],["P474","Cheese Pizza 12in","Restaurant","Pizza & Pasta",14.49,"🍕",36],["P475","Supreme Pizza 12in","Restaurant","Pizza & Pasta",19.99,"🍕",20],["P476","BBQ Chicken Pizza 12in","Restaurant","Pizza & Pasta",18.99,"🍕",25],["P477","Vegetable Pizza 12in","Restaurant","Pizza & Pasta",17.99,"🍕",30],["P478","Chicken Alfredo Pasta","Restaurant","Pizza & Pasta",16.99,"🍕",32],["P479","Spaghetti & Meatballs","Restaurant","Pizza & Pasta",15.99,"🍕",38],["P480","Penne Arrabbiata","Restaurant","Pizza & Pasta",13.99,"🍕",22],["P481","Fettuccine Alfredo","Restaurant","Pizza & Pasta",14.99,"🍕",21],["P482","Baked Mac & Cheese","Restaurant","Pizza & Pasta",12.99,"🍕",31],["P483","Lasagna","Restaurant","Pizza & Pasta",16.49,"🍕",22],["P484","Grilled Chicken Dinner","Restaurant","Main Courses",16.99,"🍽️",20],["P485","Crispy Chicken Dinner","Restaurant","Main Courses",16.49,"🍽️",32],["P486","Grilled Salmon","Restaurant","Main Courses",21.99,"🍽️",23],["P487","Fish & Chips","Restaurant","Main Courses",16.99,"🍽️",23],["P488","Fried Shrimp Platter","Restaurant","Main Courses",18.99,"🍽️",34],["P489","Steak & Fries","Restaurant","Main Courses",24.99,"🍽️",15],["P490","Sirloin Steak Dinner","Restaurant","Main Courses",27.99,"🍽️",17],["P491","Chicken Parmesan","Restaurant","Main Courses",17.99,"🍽️",17],["P492","Meatloaf Dinner","Restaurant","Main Courses",15.99,"🍽️",20],["P493","Roast Chicken Dinner","Restaurant","Main Courses",16.99,"🍽️",28],["P494","BBQ Ribs Half Rack","Restaurant","Main Courses",20.99,"🍽️",32],["P495","Pork Chop Dinner","Restaurant","Main Courses",19.99,"🍽️",20],["P496","Vegetable Stir Fry","Restaurant","Main Courses",14.99,"🍽️",34],["P497","Chicken Fajita Plate","Restaurant","Main Courses",16.99,"🍽️",31],["P498","Chicken Tacos 3pc","Restaurant","Tacos & Mexican",12.99,"🌮",17],["P499","Beef Tacos 3pc","Restaurant","Tacos & Mexican",13.49,"🌮",38],["P500","Fish Tacos 3pc","Restaurant","Tacos & Mexican",14.49,"🌮",26],["P501","Chicken Burrito","Restaurant","Tacos & Mexican",12.99,"🌮",34],["P502","Beef Burrito","Restaurant","Tacos & Mexican",13.99,"🌮",17],["P503","Vegetable Burrito","Restaurant","Tacos & Mexican",11.99,"🌮",25],["P504","Chicken Quesadilla","Restaurant","Tacos & Mexican",12.99,"🌮",39],["P505","Beef Quesadilla","Restaurant","Tacos & Mexican",13.99,"🌮",21],["P506","Fajita Nachos","Restaurant","Tacos & Mexican",14.99,"🌮",36],["P507","Rice & Beans","Restaurant","Tacos & Mexican",5.99,"🌮",36],["P508","Guacamole & Chips","Restaurant","Tacos & Mexican",7.99,"🌮",29],["P509","Kids Cheeseburger","Restaurant","Kids Menu",8.99,"🧒",24],["P510","Kids Chicken Tenders","Restaurant","Kids Menu",8.49,"🧒",29],["P511","Kids Grilled Cheese","Restaurant","Kids Menu",7.49,"🧒",15],["P512","Kids Mac & Cheese","Restaurant","Kids Menu",7.49,"🧒",39],["P513","Kids Mini Pizza","Restaurant","Kids Menu",8.49,"🧒",34],["P514","Kids Spaghetti","Restaurant","Kids Menu",7.99,"🧒",18],["P515","Kids Pancakes","Restaurant","Kids Menu",7.49,"🧒",21],["P516","Kids Fish Sticks","Restaurant","Kids Menu",7.99,"🧒",28],["P517","Kids Hot Dog","Restaurant","Kids Menu",7.49,"🧒",37],["P518","Grilled Chicken Caesar","Restaurant","Salads & Healthy",14.99,"🥗",21],["P519","Cobb Salad","Restaurant","Salads & Healthy",15.99,"🥗",35],["P520","Greek Salad","Restaurant","Salads & Healthy",12.99,"🥗",17],["P521","Garden Salad","Restaurant","Salads & Healthy",9.99,"🥗",30],["P522","Tuna Salad Plate","Restaurant","Salads & Healthy",13.99,"🥗",27],["P523","Grilled Salmon Salad","Restaurant","Salads & Healthy",18.99,"🥗",23],["P524","Chicken Grain Bowl","Restaurant","Salads & Healthy",15.49,"🥗",22],["P525","Vegetable Grain Bowl","Restaurant","Salads & Healthy",13.99,"🥗",26],["P526","New York Cheesecake","Restaurant","Desserts",7.99,"🍰",23],["P527","Chocolate Cake","Restaurant","Desserts",7.49,"🍰",34],["P528","Carrot Cake","Restaurant","Desserts",7.49,"🍰",24],["P529","Apple Pie Slice","Restaurant","Desserts",6.49,"🍰",23],["P530","Warm Brownie","Restaurant","Desserts",6.99,"🍰",26],["P531","Brownie Sundae","Restaurant","Desserts",8.99,"🍰",19],["P532","Chocolate Chip Cookies 3pc","Restaurant","Desserts",4.99,"🍰",32],["P533","Ice Cream Sundae","Restaurant","Desserts",7.49,"🍰",17],["P534","Vanilla Ice Cream","Restaurant","Desserts",4.99,"🍰",39],["P535","Chocolate Ice Cream","Restaurant","Desserts",4.99,"🍰",33],["P536","Strawberry Shortcake","Restaurant","Desserts",7.49,"🍰",37],["P537","Tiramisu","Restaurant","Desserts",8.49,"🍰",26],["P538","House Coffee","Restaurant","Hot Beverages",2.99,"☕",34],["P539","Decaf Coffee","Restaurant","Hot Beverages",2.99,"☕",28],["P540","Espresso","Restaurant","Hot Beverages",2.49,"☕",40],["P541","Double Espresso","Restaurant","Hot Beverages",3.49,"☕",18],["P542","Cappuccino","Restaurant","Hot Beverages",4.49,"☕",22],["P543","Caffe Latte","Restaurant","Hot Beverages",4.49,"☕",36],["P544","Vanilla Latte","Restaurant","Hot Beverages",4.99,"☕",33],["P545","Caramel Latte","Restaurant","Hot Beverages",4.99,"☕",17],["P546","Mocha","Restaurant","Hot Beverages",4.99,"☕",16],["P547","Hot Chocolate","Restaurant","Hot Beverages",3.99,"☕",16],["P548","Chai Latte","Restaurant","Hot Beverages",4.49,"☕",40],["P549","Americano","Restaurant","Hot Beverages",3.49,"☕",37],["P550","Hot Tea","Restaurant","Hot Beverages",2.99,"☕",23],["P551","Green Tea","Restaurant","Hot Beverages",3.29,"☕",37],["P552","Iced Coffee","Restaurant","Cold Beverages",4.49,"🥤",40],["P553","Iced Latte","Restaurant","Cold Beverages",4.99,"🥤",33],["P554","Iced Tea","Restaurant","Cold Beverages",3.49,"🥤",24],["P555","Sweet Tea","Restaurant","Cold Beverages",3.49,"🥤",28],["P556","Fresh Lemonade","Restaurant","Cold Beverages",3.99,"🥤",21],["P557","Strawberry Lemonade","Restaurant","Cold Beverages",4.49,"🥤",35],["P558","Fresh Orange Juice","Restaurant","Cold Beverages",4.49,"🥤",35],["P559","Apple Juice","Restaurant","Cold Beverages",3.49,"🥤",21],["P560","Cranberry Juice","Restaurant","Cold Beverages",3.49,"🥤",31],["P561","Chocolate Milk","Restaurant","Cold Beverages",3.49,"🥤",20],["P562","Milk","Restaurant","Cold Beverages",2.99,"🥤",21],["P563","Sparkling Water","Restaurant","Cold Beverages",2.99,"🥤",32],["P564","Bottled Water","Restaurant","Cold Beverages",2.49,"🥤",38],["P565","Cola","Restaurant","Cold Beverages",2.99,"🥤",28],["P566","Diet Cola","Restaurant","Cold Beverages",2.99,"🥤",34],["P567","Lemon-Lime Soda","Restaurant","Cold Beverages",2.99,"🥤",37],["P568","Root Beer","Restaurant","Cold Beverages",2.99,"🥤",25],["P569","Virgin Mojito","Restaurant","Mocktails & Specialty Drinks",5.99,"🍹",39],["P570","Strawberry Fizz","Restaurant","Mocktails & Specialty Drinks",5.99,"🍹",33],["P571","Peach Iced Tea","Restaurant","Mocktails & Specialty Drinks",4.99,"🍹",30],["P572","Mango Cooler","Restaurant","Mocktails & Specialty Drinks",5.49,"🍹",27],["P573","Berry Lemonade Fizz","Restaurant","Mocktails & Specialty Drinks",5.99,"🍹",19],["P574","Tropical Fruit Punch","Restaurant","Mocktails & Specialty Drinks",4.99,"🍹",16],["P575","Pineapple Cooler","Restaurant","Mocktails & Specialty Drinks",5.49,"🍹",22],["P576","Cucumber Lime Cooler","Restaurant","Mocktails & Specialty Drinks",5.49,"🍹",16],["P577","Sparkling Berry Cooler","Restaurant","Mocktails & Specialty Drinks",5.99,"🍹",36]];
+
+let cart=[], category="All", coupon=0, payment="Cash", transactions=[], lastReceipt=null;
+let restockEnabled=true, restockIntervalSeconds=60, restockCountdown=60, restockTimer=null, restockRuns=0;
+
+function restockAll(){
+  let restocked=0;
+  products.forEach(p=>{
+    const threshold = p[2]==="Grocery" ? 18 : 6;
+    if(p[6] < threshold){
+      const amount = p[2]==="Grocery" ? Math.floor(Math.random()*18)+12 : Math.floor(Math.random()*8)+5;
+      p[6] += amount;
+      restocked += amount;
+    }
+  });
+  restockRuns++;
+  restockCountdown=restockIntervalSeconds;
+  renderAll();
+  updateRestockPanel();
+  if(restocked>0) showToast(`Restock delivery received: +${restocked} units`);
+}
+function updateRestockPanel(){
+  const el=document.getElementById("restockStatus");
+  const cd=document.getElementById("restockCountdown");
+  const runs=document.getElementById("restockRuns");
+  if(cd) cd.textContent=restockEnabled ? `${restockCountdown}s` : "Paused";
+  if(runs) runs.textContent=restockRuns;
+  if(el){
+    el.textContent=restockEnabled ? "● Auto-restock ON" : "○ Auto-restock OFF";
+    el.className=restockEnabled ? "pill" : "pill off";
+  }
+}
+function toggleRestock(){
+  restockEnabled=!restockEnabled;
+  updateRestockPanel();
+}
+function manualRestock(){
+  restockAll();
+}
+function showToast(msg){
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add("show");
+  clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2600);
+}
+function startRestockTimer(){
+  clearInterval(restockTimer);
+  restockTimer=setInterval(()=>{
+    if(restockEnabled){
+      restockCountdown--;
+      if(restockCountdown<=0) restockAll();
+      else updateRestockPanel();
+    }
+  },1000);
+}
+
+const cats=["All",...new Set(products.map(p=>p[2]))];
+let subcategory="All";
+function buildFilters(){
+ const box=document.getElementById("categories");
+ const mainButtons=cats.map(c=>{
+   const active=category===c;
+   return `<button class="cat ${active?"sel":""}" data-cat="${encodeURIComponent(c)}">${c}</button>`;
+ }).join("");
+ const subs=getSubcats().map(c=>{
+   const active=subcategory===c;
+   return `<button class="subcat ${active?"sel":""}" data-sub="${encodeURIComponent(c)}">${c}</button>`;
+ }).join("");
+ box.innerHTML=`<div class="filterrow">${mainButtons}</div>
+ <div class="subfilters"><button class="subcat ${subcategory==="All"?"sel":""}" data-sub="All">All subcategories</button>${subs}</div>`;
+ box.querySelectorAll("[data-cat]").forEach(btn=>btn.addEventListener("click",()=>{
+   category=decodeURIComponent(btn.dataset.cat); subcategory="All"; buildFilters(); renderProducts();
+ }));
+ box.querySelectorAll("[data-sub]").forEach(btn=>btn.addEventListener("click",()=>{
+   subcategory=decodeURIComponent(btn.dataset.sub); buildFilters(); renderProducts();
+ }));
+}
+function getSubcats(){
+ return [...new Set(products.filter(p=>category==="All"||p[2]===category).map(p=>p[3]))].sort();
+}
+function money(n){return "$"+Number(n||0).toFixed(2)}
+function renderProducts(){
+ let q=document.getElementById("search").value.toLowerCase().trim();
+ let list=products.filter(p=>
+   (category==="All"||p[2]===category) &&
+   (subcategory==="All"||p[3]===subcategory) &&
+   (p[1]+" "+p[0]+" "+p[2]+" "+p[3]).toLowerCase().includes(q)
+ );
+ document.getElementById("productCount").textContent=list.length+" products";
+ document.getElementById("products").innerHTML=list.map(p=>`
+   <button class="product" onclick="add('${p[0]}')">
+     <div class="prodicon">${p[5]}</div>
+     <div class="prodname">${p[1]}</div>
+     <div class="prodmeta">${p[0]} • ${p[2]} • ${p[3]} • Stock ${p[6]}</div>
+     <div class="price">${money(p[4])}</div>
+   </button>`).join("") || `<div style="grid-column:1/-1;text-align:center;color:#9da4b2;padding:50px">No products found.</div>`;
+}
+function add(sku){
+ let p=products.find(x=>x[0]===sku);
+ let x=cart.find(x=>x[0]===sku);
+ if(!p)return;
+ if(p[6]<=0)return alert("This fictional item is out of stock.");
+ if(x && x[1]>=p[6])return alert("You cannot add more than the available fictional stock.");
+ if(x)x[1]++;else cart.push([sku,1]);
+ renderCart();
+}
+function changeQty(sku,d){
+ let x=cart.find(x=>x[0]===sku), p=products.find(y=>y[0]===sku);
+ if(!x||!p)return;
+ x[1]=Math.max(0,Math.min(p[6],x[1]+d));
+ if(x[1]===0)cart=cart.filter(y=>y[0]!==sku);
+ renderCart();
+}
+function clearCart(){
+ cart=[]; coupon=0;
+ document.getElementById("coupon").value="";
+ renderCart();
+}
+function totals(){
+ let sub=cart.reduce((a,x)=>a+products.find(p=>p[0]===x[0])[4]*x[1],0);
+ let dis=sub*coupon;
+ let taxable=sub-dis;
+ let tax=taxable*.08;
+ return {sub,dis,tax,total:taxable+tax};
+}
+function renderCart(){
+ let el=document.getElementById("cart");
+ if(!cart.length){
+   el.innerHTML='<div class="empty">🛒<br><br>No items in the sale.<br>Select products to begin.</div>';
+ } else {
+   el.innerHTML=cart.map(x=>{
+     let p=products.find(y=>y[0]===x[0]);
+     return `<div class="lineitem">
+       <div>
+         <div class="li-name">${p[5]} ${p[1]}</div>
+         <div class="li-sku">${p[0]} • ${money(p[4])} each • ${p[3]}</div>
+         <div class="li-controls">
+           <button class="qty" onclick="changeQty('${p[0]}',-1)">−</button>
+           <b>${x[1]}</b>
+           <button class="qty" onclick="changeQty('${p[0]}',1)">+</button>
+         </div>
+       </div>
+       <div class="li-total">${money(p[4]*x[1])}</div>
+     </div>`;
+   }).join("");
+ }
+ let t=totals();
+ document.getElementById("subtotal").textContent=money(t.sub);
+ document.getElementById("tax").textContent=money(t.tax);
+ document.getElementById("discount").textContent="-"+money(t.dis);
+ document.getElementById("total").textContent=money(t.total);
+ updateChange();
+}
+function applyCoupon(){let code=document.getElementById("coupon").value.trim().toUpperCase();if(code==="SAVE10"){coupon=.10;alert("SAVE10 applied: 10% off.");}else if(!code){coupon=0}else{coupon=0;alert("Unknown fictional promo code. Try SAVE10.");}renderCart()}
+function updateChange(){let r=parseFloat(document.getElementById("received").value)||0;let c=r-totals().total;document.getElementById("change").textContent=money(Math.max(0,c))}
+function setPayment(x){payment=x;if(x!=="Cash")document.getElementById("received").value="";alert("Payment method selected: "+x)}
+function checkout(){
+ if(!cart.length)return alert("Add at least one item.");
+ let t=totals(), received=parseFloat(document.getElementById("received").value)||0;
+ if(payment==="Cash"&&received<t.total)return alert("Cash received is less than the fictional total.");
+ let now=new Date(), id="JS-"+String(transactions.length+1).padStart(5,"0");
+ let tx={id,time:now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),items:cart.reduce((a,x)=>a+x[1],0),payment,total:t.total,sub:t.sub,tax:t.tax,disc:t.dis,lines:cart.map(x=>({...x}))};
+ transactions.unshift(tx);lastReceipt=tx;
+ cart.forEach(x=>{let p=products.find(y=>y[0]===x[0]);p[6]=Math.max(0,p[6]-x[1])});
+ clearCart();document.getElementById("received").value="";renderAll();
+ openReceipt(tx);
+}
+function openReceipt(tx){document.getElementById("modalContent").innerHTML=`<h2>Sale Complete</h2><div class="receipt" id="receipt"><h2>J&S MARKET</h2><small>FICTIONAL TRAINING STORE</small><small>REGISTER #03 • CASHIER ALEX</small><div class="dash"></div>${tx.lines.map(x=>{let p=products.find(y=>y[0]===x[0]);return `<div class="rline"><span>${x[1]} × ${p[1]}</span><span>${money(p[4]*x[1])}</span></div>`}).join("")}<div class="dash"></div><div class="rline"><span>SUBTOTAL</span><b>${money(tx.sub)}</b></div><div class="rline"><span>SALES TAX 8%</span><b>${money(tx.tax)}</b></div><div class="rline"><span>DISCOUNT</span><b>-${money(tx.disc)}</b></div><div class="rline"><span>TOTAL</span><b>${money(tx.total)}</b></div><div class="rline"><span>PAYMENT</span><b>${tx.payment}</b></div><div class="dash"></div><small>Receipt ${tx.id} • ${tx.time}</small><div class="printnote">Fictional roleplay receipt — no real payment.</div></div><div class="modalactions"><button onclick="closeModal()">Close</button><button class="primary" onclick="printReceipt()">Print Receipt</button></div>`;document.getElementById("modal").classList.add("show")}
+function printReceipt(){let r=document.getElementById("receipt").outerHTML;let w=window.open("","_blank");w.document.write(`<html><head><title>Receipt</title><style>body{font-family:monospace;margin:0}.receipt{width:80mm;padding:5mm}.receipt h2{text-align:center;margin:0}.receipt small{display:block;text-align:center;margin:4px}.rline{display:flex;justify-content:space-between;font-size:12px;margin:6px 0}.dash{border-top:1px dashed #555;margin:12px 0}.printnote{font-size:10px;text-align:center;color:#555}</style></head><body>${r}
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+
+</body></html>`);w.document.close();w.print()}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function printLast(){if(lastReceipt)openReceipt(lastReceipt);else alert("No completed sale yet.")}
+function showPage(id,b){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");renderAll()}
+function renderTransactions(){
+ document.getElementById("txTable").innerHTML=transactions.length?transactions.map(t=>`<tr><td><b>${t.id}</b></td><td>${t.time}</td><td>${t.items}</td><td>${t.payment}</td><td><b>${money(t.total)}</b></td></tr>`).join(""):'<tr><td colspan="5" style="text-align:center;color:#888;padding:35px">No transactions yet.</td></tr>';
+ let gross=transactions.reduce((a,t)=>a+t.total,0),items=transactions.reduce((a,t)=>a+t.items,0);document.getElementById("txCount").textContent=transactions.length;document.getElementById("gross").textContent=money(gross);document.getElementById("itemsSold").textContent=items;document.getElementById("avg").textContent=money(transactions.length?gross/transactions.length:0);
+}
+function renderInventory(){document.getElementById("inventoryGrid").innerHTML=products.map(p=>`<div class="stock"><div class="stocktop"><b>${p[5]} ${p[1]}</b><span class="${p[6]<=7?'low':'ok'}">${p[6]} units</span></div><div class="prodmeta" style="margin-top:8px">${p[0]} • ${p[2]} • ${p[3]}</div><div class="price">${money(p[4])}</div></div>`).join("")}
+function renderReports(){let sales=transactions.reduce((a,t)=>a+t.total,0),vat=transactions.reduce((a,t)=>a+t.tax,0),disc=transactions.reduce((a,t)=>a+t.disc,0),cash=transactions.filter(t=>t.payment==="Cash").reduce((a,t)=>a+t.total,0);document.getElementById("reportSales").textContent=money(sales);document.getElementById("reportVat").textContent=money(vat);document.getElementById("reportDisc").textContent=money(disc);document.getElementById("cashSales").textContent=money(cash);document.getElementById("reportDetails").innerHTML=`<div class="sumrow"><span>Register</span><b>#03</b></div><div class="sumrow"><span>Cashier</span><b>Alex</b></div><div class="sumrow"><span>Transactions</span><b>${transactions.length}</b></div><div class="sumrow"><span>Units sold</span><b>${transactions.reduce((a,t)=>a+t.items,0)}</b></div><div class="sumrow"><span>Card / other sales</span><b>${money(sales-cash)}</b></div><div class="sumrow"><span>Store status</span><b style="color:#73dc9d">OPEN</b></div>`}
+function renderAll(){renderProducts();renderCart();renderTransactions();renderInventory();renderReports()}
+function openShift(){document.getElementById("modalContent").innerHTML=`<h2>Cash Drawer</h2><div class="formgrid"><label>Opening cash<input value="$200.00" disabled></label><label>Register<input value="#03" disabled></label><label>Cashier<input value="Alex" disabled></label></div><div class="modalactions"><button class="primary" onclick="closeModal()">Close</button></div>`;document.getElementById("modal").classList.add("show")}
+function tick(){document.getElementById("clock").textContent=new Date().toLocaleString([], {dateStyle:"medium",timeStyle:"medium"})}
+buildFilters();setInterval(tick,1000);tick();renderAll();updateRestockPanel();startRestockTimer();
+</script>
+</body>
+</html>
