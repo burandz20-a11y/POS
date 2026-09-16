@@ -1,0 +1,9 @@
+{
+  "name": "J&S Market POS",
+  "short_name": "J&S Market",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "description": "Fictional J&S Market cashier and restaurant POS."
+}
